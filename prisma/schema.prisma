@@ -1,0 +1,144 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  email     String   @unique
+  password  String
+  name      String?
+  language  String   @default("en") // "en" or "fr"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  learningMaterials LearningMaterial[]
+  learningPlans     LearningPlan[]
+  progress          LearningProgress[]
+  quizResults       QuizResult[]
+
+  @@map("users")
+}
+
+model LearningMaterial {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  fileUrl     String
+  fileType    String   // "pdf", "image"
+  extractedText String?
+  status      String   @default("processing") // "processing", "completed", "failed"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  userId        String         @db.ObjectId
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  learningPlans LearningPlan[]
+
+  @@map("learning_materials")
+}
+
+model LearningPlan {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  totalDays   Int      @default(10)
+  status      String   @default("active") // "active", "completed", "paused"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  userId              String             @db.ObjectId
+  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  learningMaterialId  String             @db.ObjectId
+  learningMaterial    LearningMaterial   @relation(fields: [learningMaterialId], references: [id], onDelete: Cascade)
+  topics              Topic[]
+  progress            LearningProgress[]
+
+  @@map("learning_plans")
+}
+
+model Topic {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  title        String
+  description  String?
+  content      String
+  dayIndex     Int      // 1-10 for 10-day plan
+  goals        String[] // Array of learning goals
+  timeEstimate Int?     // Estimated time in minutes
+  status       String   @default("locked") // "locked", "unlocked", "completed"
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  learningPlanId String             @db.ObjectId
+  learningPlan   LearningPlan       @relation(fields: [learningPlanId], references: [id], onDelete: Cascade)
+  quizzes        Quiz[]
+  progress       LearningProgress[]
+
+  @@map("topics")
+}
+
+model Quiz {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  questions   Json     // Array of question objects
+  passingScore Int     @default(70) // Percentage required to pass
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  topicId     String       @db.ObjectId
+  topic       Topic        @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  quizResults QuizResult[]
+
+  @@map("quizzes")
+}
+
+model LearningProgress {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  status         String   @default("not_started") // "not_started", "in_progress", "completed"
+  completedAt    DateTime?
+  timeSpent      Int      @default(0) // Time spent in minutes
+  masteryScore   Int?     // Overall mastery score for the topic
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  userId         String       @db.ObjectId
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  learningPlanId String       @db.ObjectId
+  learningPlan   LearningPlan @relation(fields: [learningPlanId], references: [id], onDelete: Cascade)
+  topicId        String       @db.ObjectId
+  topic          Topic        @relation(fields: [topicId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, topicId])
+  @@map("learning_progress")
+}
+
+model QuizResult {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  score       Int      // Percentage score
+  answers     Json     // Array of user answers
+  passed      Boolean  @default(false)
+  timeSpent   Int      // Time spent in seconds
+  completedAt DateTime @default(now())
+
+  // Relations
+  userId String @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quizId String @db.ObjectId
+  quiz   Quiz   @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  @@map("quiz_results")
+}

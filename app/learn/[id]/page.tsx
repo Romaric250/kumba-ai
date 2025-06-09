@@ -64,83 +64,37 @@ export default function LearnTopicPage({ params }: { params: { id: string } }) {
 
   const fetchLearningPlan = async () => {
     try {
-      // For now, we'll use mock data based on the seeded data
-      const mockPlan: LearningPlan = {
-        id: '1',
-        title: 'Master Advanced Calculus in 10 Days',
-        description: 'A comprehensive learning plan covering limits, derivatives, and integrals',
-        totalDays: 10,
-        status: 'active',
-        topics: [
-          {
-            id: '6846b3a69a94e420203ce0d4',
-            title: 'Introduction to Limits',
-            description: 'Understanding the fundamental concept of limits and their properties',
-            content: `
-# Introduction to Limits
+      // First try to fetch as a learning plan
+      let response = await fetch(`/api/learning-plans/${params.id}`)
 
-## What are Limits?
+      if (response.ok) {
+        const data = await response.json()
+        setLearningPlan(data.learningPlan)
+        // If it's a learning plan, show the first topic
+        if (data.learningPlan.topics && data.learningPlan.topics.length > 0) {
+          setCurrentTopic(data.learningPlan.topics[0])
+        }
+      } else {
+        // If not a learning plan, try to fetch as a topic
+        response = await fetch(`/api/topics/${params.id}`)
 
-Limits are the foundation of calculus. They describe the behavior of functions as inputs approach specific values.
+        if (response.ok) {
+          const data = await response.json()
+          setCurrentTopic(data.topic)
 
-### Key Concepts:
-- **Definition**: A limit describes what happens to f(x) as x approaches a particular value
-- **Notation**: lim(x→a) f(x) = L means "the limit of f(x) as x approaches a equals L"
-- **Intuitive Understanding**: Think of limits as "getting arbitrarily close to" a value
-
-### Examples:
-1. **Simple Limit**: lim(x→2) (x + 1) = 3
-2. **Limit at Infinity**: lim(x→∞) (1/x) = 0
-3. **One-sided Limits**: Approaching from left or right
-
-### Properties of Limits:
-- Limit of a sum = sum of limits
-- Limit of a product = product of limits
-- Limit of a quotient = quotient of limits (if denominator ≠ 0)
-
-### Practice Problems:
-Try calculating these limits:
-- lim(x→3) (x² - 9)/(x - 3)
-- lim(x→0) sin(x)/x
-- lim(x→∞) (2x + 1)/(x + 3)
-            `,
-            goals: [
-              'Understand the definition of a limit',
-              'Calculate basic limits using algebraic methods',
-              'Recognize limit notation and terminology',
-              'Apply limit laws to solve problems'
-            ],
-            timeEstimate: 45,
-            dayIndex: 1,
-            status: 'unlocked',
-            quiz: {
-              id: 'quiz-1',
-              title: 'Limits Mastery Quiz',
-              passingScore: 70,
-              questions: [
-                {
-                  id: 1,
-                  type: 'multiple_choice',
-                  question: 'What does lim(x→2) f(x) = 5 mean?',
-                  options: [
-                    'f(2) = 5',
-                    'As x gets close to 2, f(x) gets close to 5',
-                    'x = 2 and f(x) = 5',
-                    'f(x) is always 5'
-                  ],
-                  correctAnswer: 1,
-                  explanation: 'A limit describes the behavior of a function as the input approaches a value, not necessarily the value at that point.',
-                  points: 25
-                }
-              ]
-            }
-          }
-        ]
+          // Create a minimal learning plan object for context
+          setLearningPlan({
+            id: data.topic.learningPlan.id,
+            title: data.topic.learningPlan.title,
+            description: data.topic.learningPlan.description,
+            totalDays: data.topic.learningPlan.totalDays,
+            status: 'active',
+            topics: data.topic.allTopics || []
+          })
+        } else {
+          console.error('Failed to fetch topic or learning plan')
+        }
       }
-
-      setLearningPlan(mockPlan)
-      const topic = mockPlan.topics.find(t => t.id === params.id)
-      setCurrentTopic(topic || null)
     } catch (error) {
       console.error('Failed to fetch learning plan:', error)
     } finally {

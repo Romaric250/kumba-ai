@@ -192,7 +192,7 @@ export async function generateLearningRoadmap(content: string, language: 'en' | 
     const prompt = PROMPTS.ROADMAP_GENERATION[language] + '\n\n' + content
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4',
+      model: 'gpt-3.5-turbo',
       messages: [
         {
           role: 'system',
@@ -223,7 +223,7 @@ export async function generateQuiz(topicContent: string, language: 'en' | 'fr' =
     const prompt = PROMPTS.QUIZ_GENERATION[language] + '\n\n' + topicContent
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4',
+      model: 'gpt-3.5-turbo',
       messages: [
         {
           role: 'system',
@@ -260,7 +260,7 @@ export async function getMentorResponse(
       .replace('{question}', question)
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4',
+      model: 'gpt-3.5-turbo',
       messages: [
         {
           role: 'system',

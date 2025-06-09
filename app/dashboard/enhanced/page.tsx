@@ -1,86 +1,15 @@
 'use client'
 
-import { useSession, signOut } from 'next-auth/react'
+import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState, useRef } from 'react'
-import { 
-  BookOpen, 
-  Send, 
-  Plus,
-  Menu,
-  User,
-  LogOut,
-  Upload,
-  BarChart3,
-  Target,
-  Brain,
-  Globe,
-  Settings,
-  Sparkles,
-  Clock,
-  Trophy,
-  Zap,
-  MessageCircle,
-  FileText,
-  TrendingUp,
-  Award,
-  Calendar,
-  CheckCircle
-} from 'lucide-react'
-import ProgressCard from '@/components/dashboard/ProgressCard'
-import QuickActions from '@/components/dashboard/QuickActions'
-import MentorMessage from '@/components/dashboard/MentorMessage'
-
-interface ChatMessage {
-  id: string
-  type: 'user' | 'assistant'
-  content: string
-  timestamp: Date
-  metadata?: {
-    topic?: string
-    progress?: number
-    action?: string
-    suggestions?: string[]
-  }
-}
-
-interface LearningSession {
-  id: string
-  title: string
-  lastMessage: string
-  timestamp: Date
-  progress: number
-  status: 'active' | 'completed' | 'paused'
-  subject: string
-}
-
-interface LearningStats {
-  totalSessions: number
-  completedTopics: number
-  averageScore: number
-  streakDays: number
-  timeSpent: number
-  nextMilestone: string
-}
+import { useEffect } from 'react'
+import { DynamicDashboard } from '@/components/dashboard/dynamic-dashboard'
+import { LanguageProvider } from '@/lib/language-context'
+import { LanguageSwitcher } from '@/components/ui/language-switcher'
 
 export default function EnhancedDashboard() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [currentSession, setCurrentSession] = useState<string | null>(null)
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [inputMessage, setInputMessage] = useState('')
-  const [isTyping, setIsTyping] = useState(false)
-  const [sessions, setSessions] = useState<LearningSession[]>([])
-  const [stats, setStats] = useState<LearningStats>({
-    totalSessions: 0,
-    completedTopics: 0,
-    averageScore: 0,
-    streakDays: 0,
-    timeSpent: 0,
-    nextMilestone: ''
-  })
-  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -88,9 +17,39 @@ export default function EnhancedDashboard() {
     }
   }, [status, router])
 
-  useEffect(() => {
-    // Initialize with enhanced sample data
-    const sampleSessions: LearningSession[] = [
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading Kumba.AI...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!session) {
+    return null
+  }
+
+  return (
+    <LanguageProvider>
+      <div className="container mx-auto px-4 py-8">
+        {/* Header with Language Switcher */}
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Kumba.AI Dashboard</h1>
+            <p className="text-gray-600 mt-1">Your AI-powered learning companion</p>
+          </div>
+          <LanguageSwitcher />
+        </div>
+
+        {/* Dynamic Dashboard Content */}
+        <DynamicDashboard />
+      </div>
+    </LanguageProvider>
+  )
+}
       {
         id: '1',
         title: 'Advanced Calculus Mastery',

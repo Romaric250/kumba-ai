@@ -11,7 +11,9 @@
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
     "setup": "node scripts/setup.js",
-    "db:seed": "node scripts/setup.js"
+    "db:seed": "node scripts/setup.js",
+    "start-dev": "node scripts/start-dev.js",
+    "quick-start": "node scripts/start-dev.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.1.0",

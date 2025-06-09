@@ -1,4 +1,7 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Crimson+Pro:wght@400;600;700&display=swap');
 @import "tailwindcss";
+
+
 
 :root {
   --background: #faf8f3;
@@ -7,6 +10,10 @@
   --secondary: #0ea5e9;
   --accent: #eab308;
   --earth: #bc9558;
+
+  /* ✅ Define font variables */
+  --font-inter: 'Inter', sans-serif;
+  --font-crimson: 'Crimson Pro', serif;
 }
 
 @theme inline {

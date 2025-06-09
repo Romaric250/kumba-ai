@@ -128,18 +128,92 @@ export function extractKeyTopics(text: string): string[] {
     .replace(/[^\w\s]/g, '')
     .split(/\s+/)
     .filter(word => word.length > 3)
-  
+
   // Count word frequency
   const wordCount: { [key: string]: number } = {}
   words.forEach(word => {
     wordCount[word] = (wordCount[word] || 0) + 1
   })
-  
+
   // Get top keywords
   const sortedWords = Object.entries(wordCount)
     .sort(([,a], [,b]) => b - a)
     .slice(0, 10)
     .map(([word]) => word)
-  
+
   return sortedWords
+}
+
+// Enhanced content analysis functions
+export function analyzeContentComplexity(text: string): {
+  readingLevel: 'beginner' | 'intermediate' | 'advanced'
+  estimatedReadingTime: number
+  keyTopics: string[]
+  wordCount: number
+  sentenceCount: number
+  avgSentenceLength: number
+} {
+  const wordCount = text.split(/\s+/).length
+  const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0)
+  const sentenceCount = sentences.length
+  const avgSentenceLength = wordCount / sentenceCount
+  const avgWordsPerMinute = 200
+  const estimatedReadingTime = Math.ceil(wordCount / avgWordsPerMinute)
+
+  // Determine reading level based on sentence complexity
+  let readingLevel: 'beginner' | 'intermediate' | 'advanced' = 'beginner'
+  if (avgSentenceLength > 20) readingLevel = 'advanced'
+  else if (avgSentenceLength > 15) readingLevel = 'intermediate'
+
+  const keyTopics = extractKeyTopics(text)
+
+  return {
+    readingLevel,
+    estimatedReadingTime,
+    keyTopics,
+    wordCount,
+    sentenceCount,
+    avgSentenceLength: Math.round(avgSentenceLength * 10) / 10
+  }
+}
+
+export function extractLearningObjectives(text: string): string[] {
+  // Look for common patterns that indicate learning objectives
+  const patterns = [
+    /(?:learn|understand|master|know|study|explore|analyze|examine|investigate)\s+([^.!?]{10,100})/gi,
+    /(?:objective|goal|aim|purpose):\s*([^.!?]{10,100})/gi,
+    /(?:students will|learners will|you will)\s+([^.!?]{10,100})/gi,
+    /(?:by the end|after completing|upon completion).*?(?:you will|students will|learners will)\s+([^.!?]{10,100})/gi
+  ]
+
+  const objectives: string[] = []
+
+  patterns.forEach(pattern => {
+    const matches = text.matchAll(pattern)
+    for (const match of matches) {
+      if (match[1] && match[1].trim().length > 10) {
+        objectives.push(match[1].trim())
+      }
+    }
+  })
+
+  return [...new Set(objectives)].slice(0, 8) // Remove duplicates and limit to 8
+}
+
+export function identifyContentStructure(text: string): {
+  hasChapters: boolean
+  hasSections: boolean
+  hasNumberedLists: boolean
+  hasBulletPoints: boolean
+  hasCodeBlocks: boolean
+  hasFormulas: boolean
+} {
+  return {
+    hasChapters: /(?:chapter|chapitre)\s+\d+/gi.test(text),
+    hasSections: /(?:section|partie)\s+\d+/gi.test(text) || /#{1,6}\s/.test(text),
+    hasNumberedLists: /^\s*\d+\.\s/gm.test(text),
+    hasBulletPoints: /^\s*[-*•]\s/gm.test(text),
+    hasCodeBlocks: /```|`[^`]+`/.test(text),
+    hasFormulas: /\$[^$]+\$|\\\(.*?\\\)|\\\[.*?\\\]/.test(text)
+  }
 }

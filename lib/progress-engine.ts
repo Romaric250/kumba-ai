@@ -339,3 +339,272 @@ export async function canTakeQuiz(userId: string, quizId: string): Promise<boole
     return false
   }
 }
+
+// Calculate learning streak for a user
+export async function calculateLearningStreak(userId: string): Promise<number> {
+  try {
+    const recentProgress = await db.learningProgress.findMany({
+      where: {
+        userId,
+        completedAt: {
+          not: null,
+          gte: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000) // Last 60 days
+        }
+      },
+      orderBy: { completedAt: 'desc' }
+    })
+
+    if (recentProgress.length === 0) return 0
+
+    let streak = 0
+    let currentDate = new Date()
+    currentDate.setHours(0, 0, 0, 0)
+
+    // Get unique days with activity
+    const uniqueDays = new Set<number>()
+    recentProgress.forEach(progress => {
+      if (progress.completedAt) {
+        const date = new Date(progress.completedAt)
+        date.setHours(0, 0, 0, 0)
+        uniqueDays.add(date.getTime())
+      }
+    })
+
+    const sortedDays = Array.from(uniqueDays).sort((a, b) => b - a)
+
+    for (const dayTime of sortedDays) {
+      const daysDiff = Math.floor((currentDate.getTime() - dayTime) / (1000 * 60 * 60 * 24))
+
+      if (daysDiff === streak) {
+        streak++
+      } else if (daysDiff > streak) {
+        break
+      }
+    }
+
+    return streak
+  } catch (error) {
+    console.error('Error calculating learning streak:', error)
+    return 0
+  }
+}
+
+// Get personalized learning recommendations
+export async function getLearningRecommendations(
+  userId: string,
+  learningPlanId?: string,
+  language: 'en' | 'fr' = 'en'
+): Promise<string[]> {
+  try {
+    const recommendations: string[] = []
+
+    // Get user's progress data
+    const whereClause: any = { userId }
+    if (learningPlanId) whereClause.learningPlanId = learningPlanId
+
+    const progressData = await db.learningProgress.findMany({
+      where: whereClause,
+      include: {
+        topic: {
+          include: {
+            quizzes: {
+              include: {
+                quizResults: {
+                  where: { userId },
+                  orderBy: { completedAt: 'desc' }
+                }
+              }
+            }
+          }
+        }
+      }
+    })
+
+    // Calculate metrics
+    const completedTopics = progressData.filter(p => p.status === 'completed').length
+    const totalTopics = progressData.length
+    const progressPercentage = totalTopics > 0 ? (completedTopics / totalTopics) * 100 : 0
+
+    // Get quiz performance
+    const allQuizResults = progressData
+      .flatMap(p => p.topic.quizzes)
+      .flatMap(q => q.quizResults)
+
+    const averageQuizScore = allQuizResults.length > 0
+      ? allQuizResults.reduce((sum, r) => sum + r.score, 0) / allQuizResults.length
+      : 0
+
+    // Calculate learning streak
+    const streak = await calculateLearningStreak(userId)
+
+    // Generate recommendations based on performance
+    if (language === 'fr') {
+      if (streak === 0) {
+        recommendations.push("🚀 Commencez votre série d'apprentissage aujourd'hui - même 15 minutes comptent!")
+      } else if (streak >= 7) {
+        recommendations.push(`🔥 Incroyable! Vous avez une série de ${streak} jours d'apprentissage!`)
+      }
+
+      if (averageQuizScore < 70) {
+        recommendations.push("📚 Considérez réviser plus attentivement avant de passer les quiz")
+      } else if (averageQuizScore >= 90) {
+        recommendations.push("🌟 Performance excellente aux quiz! Vous maîtrisez bien le matériel.")
+      }
+
+      if (progressPercentage < 20) {
+        recommendations.push("🎯 Concentrez-vous sur la completion d'un sujet à la fois")
+      } else if (progressPercentage >= 80) {
+        recommendations.push("🏁 Vous y êtes presque! Continuez jusqu'à la ligne d'arrivée")
+      }
+    } else {
+      if (streak === 0) {
+        recommendations.push("🚀 Start your learning streak today - even 15 minutes counts!")
+      } else if (streak >= 7) {
+        recommendations.push(`🔥 Amazing! You have a ${streak}-day learning streak!`)
+      }
+
+      if (averageQuizScore < 70) {
+        recommendations.push("📚 Consider reviewing more thoroughly before taking quizzes")
+      } else if (averageQuizScore >= 90) {
+        recommendations.push("🌟 Excellent quiz performance! You're mastering the material.")
+      }
+
+      if (progressPercentage < 20) {
+        recommendations.push("🎯 Focus on completing one topic at a time")
+      } else if (progressPercentage >= 80) {
+        recommendations.push("🏁 You're almost there! Push through to the finish line")
+      }
+    }
+
+    return recommendations.slice(0, 3) // Limit to 3 recommendations
+  } catch (error) {
+    console.error('Error getting learning recommendations:', error)
+    return []
+  }
+}
+
+// Advanced progress analytics
+export interface ProgressAnalytics {
+  learningVelocity: number // topics per week
+  timeEfficiency: number // score per minute
+  consistencyScore: number // percentage
+  masteryTrend: 'improving' | 'stable' | 'declining'
+  strongAreas: string[]
+  weakAreas: string[]
+  nextMilestone: {
+    type: 'completion' | 'streak' | 'mastery'
+    target: number
+    current: number
+    description: string
+  }
+}
+
+export async function getProgressAnalytics(
+  userId: string,
+  learningPlanId?: string
+): Promise<ProgressAnalytics> {
+  try {
+    const whereClause: any = { userId }
+    if (learningPlanId) whereClause.learningPlanId = learningPlanId
+
+    // Get recent progress (last 30 days)
+    const recentProgress = await db.learningProgress.findMany({
+      where: {
+        ...whereClause,
+        completedAt: {
+          gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+        }
+      },
+      include: {
+        topic: {
+          include: {
+            quizzes: {
+              include: {
+                quizResults: {
+                  where: { userId },
+                  orderBy: { completedAt: 'desc' }
+                }
+              }
+            }
+          }
+        }
+      },
+      orderBy: { completedAt: 'asc' }
+    })
+
+    // Calculate learning velocity (topics per week)
+    const weeksInPeriod = 4 // 30 days ≈ 4 weeks
+    const learningVelocity = recentProgress.length / weeksInPeriod
+
+    // Calculate time efficiency (average score per minute)
+    const totalTime = recentProgress.reduce((sum, p) => sum + p.timeSpent, 0)
+    const totalScore = recentProgress.reduce((sum, p) => sum + (p.masteryScore || 0), 0)
+    const timeEfficiency = totalTime > 0 ? totalScore / totalTime : 0
+
+    // Calculate consistency score
+    const uniqueDays = new Set()
+    recentProgress.forEach(p => {
+      if (p.completedAt) {
+        const date = new Date(p.completedAt)
+        date.setHours(0, 0, 0, 0)
+        uniqueDays.add(date.getTime())
+      }
+    })
+    const consistencyScore = (uniqueDays.size / 30) * 100 // percentage of days active
+
+    // Determine mastery trend
+    const scores = recentProgress
+      .filter(p => p.masteryScore)
+      .map(p => p.masteryScore!)
+
+    let masteryTrend: 'improving' | 'stable' | 'declining' = 'stable'
+    if (scores.length >= 3) {
+      const firstHalf = scores.slice(0, Math.floor(scores.length / 2))
+      const secondHalf = scores.slice(Math.floor(scores.length / 2))
+      const firstAvg = firstHalf.reduce((sum, s) => sum + s, 0) / firstHalf.length
+      const secondAvg = secondHalf.reduce((sum, s) => sum + s, 0) / secondHalf.length
+
+      if (secondAvg > firstAvg + 5) masteryTrend = 'improving'
+      else if (secondAvg < firstAvg - 5) masteryTrend = 'declining'
+    }
+
+    // Identify strong and weak areas (simplified)
+    const strongAreas = ['Pattern Recognition', 'Problem Solving'] // Placeholder
+    const weakAreas = ['Time Management'] // Placeholder
+
+    // Calculate next milestone
+    const currentStreak = await calculateLearningStreak(userId)
+    const nextMilestone = {
+      type: 'streak' as const,
+      target: Math.ceil((currentStreak + 1) / 5) * 5, // Next multiple of 5
+      current: currentStreak,
+      description: `Reach ${Math.ceil((currentStreak + 1) / 5) * 5}-day learning streak`
+    }
+
+    return {
+      learningVelocity: Math.round(learningVelocity * 10) / 10,
+      timeEfficiency: Math.round(timeEfficiency * 10) / 10,
+      consistencyScore: Math.round(consistencyScore),
+      masteryTrend,
+      strongAreas,
+      weakAreas,
+      nextMilestone
+    }
+  } catch (error) {
+    console.error('Error getting progress analytics:', error)
+    return {
+      learningVelocity: 0,
+      timeEfficiency: 0,
+      consistencyScore: 0,
+      masteryTrend: 'stable',
+      strongAreas: [],
+      weakAreas: [],
+      nextMilestone: {
+        type: 'completion',
+        target: 1,
+        current: 0,
+        description: 'Complete your first topic'
+      }
+    }
+  }
+}
